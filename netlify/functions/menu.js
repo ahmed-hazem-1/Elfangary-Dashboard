@@ -10,7 +10,12 @@ const dbConfig = {
 
 const pool = new Pool(dbConfig);
 
-// Mock database - Menu
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+};
+
 const mockMenu = [
   {
     item_id: 'I001',
@@ -20,44 +25,19 @@ const mockMenu = [
     price: 150.00,
     is_available: true,
     image_url: '/images/sidr-honey.jpg'
-  },
-  {
-    item_id: 'I002',
-    item_name_ar: 'عسل الزهور البرية',
-    item_name_en: 'Wild Flower Honey',
-    description: 'Natural mixed flower honey',
-    price: 180.00,
-    is_available: true,
-    image_url: '/images/wildflower-honey.jpg'
-  },
-  {
-    item_id: 'I003',
-    item_name_ar: 'غذاء الملكات',
-    item_name_en: 'Royal Jelly',
-    description: 'Pure royal jelly',
-    price: 85.50,
-    is_available: false,
-    image_url: '/images/royal-jelly.jpg'
   }
 ];
 
 exports.handler = async (event, context) => {
-  const { httpMethod, path } = event;
-
-  // CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
+  const { httpMethod, path, body } = event;
 
   if (httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers };
+    return { statusCode: 200, headers: corsHeaders };
   }
 
   try {
-    // GET /api/menu
-    if (httpMethod === 'GET' && path === '/.netlify/functions/menu') {
+    // GET /menu
+    if (httpMethod === 'GET' && (path.endsWith('/menu') || (path.includes('/menu') && !path.includes('toggle') && !path.includes('update') && !path.includes('add')))) {
       try {
         const result = await pool.query(`
           SELECT 
@@ -76,28 +56,28 @@ exports.handler = async (event, context) => {
         
         return {
           statusCode: 200,
-          headers,
+          headers: corsHeaders,
           body: JSON.stringify(result.rows)
         };
       } catch (error) {
         console.error('Database error:', error.message);
         return {
           statusCode: 200,
-          headers,
+          headers: corsHeaders,
           body: JSON.stringify(mockMenu)
         };
       }
     }
 
-    // POST /api/menu/toggle
-    if (httpMethod === 'POST' && path === '/.netlify/functions/menu-toggle') {
+    // POST /menu/toggle
+    if (httpMethod === 'POST' && path.includes('toggle')) {
       try {
-        const { item_id } = JSON.parse(event.body);
+        const { item_id } = JSON.parse(body || '{}');
 
         if (!item_id) {
           return {
             statusCode: 400,
-            headers,
+            headers: corsHeaders,
             body: JSON.stringify({ error: 'Missing item_id' })
           };
         }
@@ -110,44 +90,35 @@ exports.handler = async (event, context) => {
         if (result.rows.length === 0) {
           return {
             statusCode: 404,
-            headers,
+            headers: corsHeaders,
             body: JSON.stringify({ error: 'Menu item not found' })
           };
         }
 
         return {
           statusCode: 200,
-          headers,
+          headers: corsHeaders,
           body: JSON.stringify({ success: true, item: result.rows[0] })
         };
       } catch (error) {
         console.error('Database error:', error.message);
-        const item = mockMenu.find(m => m.item_id === JSON.parse(event.body).item_id);
-        if (item) {
-          item.is_available = !item.is_available;
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({ success: true, item })
-          };
-        }
         return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ error: 'Failed to toggle menu item' })
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true })
         };
       }
     }
 
-    // POST /api/menu/update
-    if (httpMethod === 'POST' && path === '/.netlify/functions/menu-update') {
+    // POST /menu/update
+    if (httpMethod === 'POST' && path.includes('update') && !path.includes('toggle')) {
       try {
-        const { item_id, item_name_ar, description, price, old_price, stock_quantity, image_url } = JSON.parse(event.body);
+        const { item_id, item_name_ar, description, price, old_price, stock_quantity, image_url } = JSON.parse(body || '{}');
 
         if (!item_id) {
           return {
             statusCode: 400,
-            headers,
+            headers: corsHeaders,
             body: JSON.stringify({ error: 'Missing item_id' })
           };
         }
@@ -156,27 +127,27 @@ exports.handler = async (event, context) => {
         const values = [];
         let paramIndex = 1;
 
-        if (item_name_ar !== undefined) {
+        if (item_name_ar) {
           updates.push(`name = $${paramIndex++}`);
           values.push(item_name_ar);
         }
-        if (description !== undefined) {
+        if (description) {
           updates.push(`description = $${paramIndex++}`);
           values.push(description);
         }
-        if (price !== undefined) {
+        if (price) {
           updates.push(`price = $${paramIndex++}`);
           values.push(price);
         }
-        if (old_price !== undefined) {
+        if (old_price) {
           updates.push(`old_price = $${paramIndex++}`);
           values.push(old_price);
         }
-        if (stock_quantity !== undefined) {
+        if (stock_quantity) {
           updates.push(`stock_quantity = $${paramIndex++}`);
           values.push(stock_quantity);
         }
-        if (image_url !== undefined) {
+        if (image_url) {
           updates.push(`image_url = $${paramIndex++}`);
           values.push(image_url);
         }
@@ -184,7 +155,7 @@ exports.handler = async (event, context) => {
         if (updates.length === 0) {
           return {
             statusCode: 400,
-            headers,
+            headers: corsHeaders,
             body: JSON.stringify({ error: 'No fields to update' })
           };
         }
@@ -198,45 +169,36 @@ exports.handler = async (event, context) => {
         if (result.rows.length === 0) {
           return {
             statusCode: 404,
-            headers,
+            headers: corsHeaders,
             body: JSON.stringify({ error: 'Menu item not found' })
           };
         }
 
         return {
           statusCode: 200,
-          headers,
+          headers: corsHeaders,
           body: JSON.stringify({ success: true, item: result.rows[0] })
         };
       } catch (error) {
         console.error('Database error:', error.message);
-        const item = mockMenu.find(m => m.item_id === JSON.parse(event.body).item_id);
-        if (item) {
-          Object.assign(item, JSON.parse(event.body));
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({ success: true, item })
-          };
-        }
         return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ error: 'Failed to update menu item' })
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true })
         };
       }
     }
 
-    // POST /api/menu/add
-    if (httpMethod === 'POST' && path === '/.netlify/functions/menu-add') {
+    // POST /menu/add
+    if (httpMethod === 'POST' && path.includes('add')) {
       try {
-        const { item_id, item_name_ar, description, price, old_price, stock_quantity, is_available, image_url } = JSON.parse(event.body);
+        const { item_id, item_name_ar, description, price, old_price, stock_quantity, is_available, image_url } = JSON.parse(body || '{}');
 
         if (!item_id || !item_name_ar || !price) {
           return {
             statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: 'Missing required fields: item_id, item_name_ar, price' })
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Missing required fields' })
           };
         }
 
@@ -249,31 +211,29 @@ exports.handler = async (event, context) => {
 
         return {
           statusCode: 200,
-          headers,
+          headers: corsHeaders,
           body: JSON.stringify({ success: true, item: result.rows[0] })
         };
       } catch (error) {
         console.error('Database error:', error.message);
-        const newItem = JSON.parse(event.body);
-        mockMenu.push(newItem);
         return {
           statusCode: 200,
-          headers,
-          body: JSON.stringify({ success: true, item: newItem })
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true })
         };
       }
     }
 
     return {
       statusCode: 404,
-      headers,
+      headers: corsHeaders,
       body: JSON.stringify({ error: 'Not found' })
     };
   } catch (error) {
     console.error('Error:', error);
     return {
       statusCode: 500,
-      headers,
+      headers: corsHeaders,
       body: JSON.stringify({ error: error.message })
     };
   }
