@@ -3,7 +3,7 @@
 const isDevelopment = import.meta.env.DEV;
 const API_BASE_URL = isDevelopment 
     ? 'http://localhost:3001/api'
-    : '/.netlify/functions';
+    : '/api';
 
 export const WEBHOOK_CONFIG = {
     API_BASE_URL,
