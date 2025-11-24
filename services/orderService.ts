@@ -123,7 +123,7 @@ export const OrderService = {
 
   async deleteOrder(orderId: string): Promise<{success: boolean; error?: string}> {
     try {
-      const response = await fetch(`${WEBHOOK_CONFIG.API_BASE_URL}/api/orders/${orderId}`, {
+      const response = await fetch(`${WEBHOOK_CONFIG.API_BASE_URL}/orders/${orderId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
