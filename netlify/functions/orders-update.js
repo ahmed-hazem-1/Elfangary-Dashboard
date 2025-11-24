@@ -20,12 +20,14 @@ const mockOrders = [];
 
 exports.handler = async (event, context) => {
   const { httpMethod, body } = event;
+  console.log('[orders-update] Received request:', { httpMethod, body });
 
   if (httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders };
   }
 
   if (httpMethod !== 'POST') {
+    console.log('[orders-update] Method not allowed:', httpMethod);
     return {
       statusCode: 405,
       headers: corsHeaders,
@@ -35,8 +37,10 @@ exports.handler = async (event, context) => {
 
   try {
     const { order_id, new_status } = JSON.parse(body || '{}');
+    console.log('[orders-update] Parsed payload:', { order_id, new_status });
 
     if (!order_id || !new_status) {
+      console.log('[orders-update] Missing required fields');
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -45,10 +49,12 @@ exports.handler = async (event, context) => {
     }
 
     try {
+      console.log('[orders-update] Executing query for order:', order_id);
       const result = await pool.query(
         'UPDATE orders SET status = $1 WHERE order_id = $2 RETURNING *',
         [new_status, order_id]
       );
+      console.log('[orders-update] Query result rows:', result.rows.length);
 
       if (result.rows.length === 0) {
         return {
@@ -64,15 +70,16 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({ success: true, order: result.rows[0] })
       };
     } catch (error) {
-      console.error('Database error:', error.message);
+      console.error('[orders-update] Database error:', error.message);
+      console.error('[orders-update] Full error:', error);
       return {
-        statusCode: 200,
+        statusCode: 500,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true })
+        body: JSON.stringify({ error: 'Database error: ' + error.message })
       };
     }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('[orders-update] Parse/general error:', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
