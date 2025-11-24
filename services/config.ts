@@ -5,6 +5,8 @@ const API_BASE_URL = isDevelopment
     ? 'http://localhost:3001/api'
     : '/api';
 
+console.log('[Config] isDevelopment:', isDevelopment, 'API_BASE_URL:', API_BASE_URL);
+
 export const WEBHOOK_CONFIG = {
     API_BASE_URL,
     GET_ORDERS_URL: `${API_BASE_URL}/orders`,
