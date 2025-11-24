@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+body {
+  background-color: #FFFBEB;
+}
+
+/* Custom scrollbar for the list area */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #FCD34D; /* Amber-300 */
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #F59E0B; /* Amber-500 */
+}
