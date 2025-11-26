@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { BarChart3, Calendar, TrendingUp, Wallet, AlertCircle, Loader2, DollarSign, ShoppingCart, Coins } from 'lucide-react';
+import { BarChart3, Calendar, TrendingUp, Wallet, AlertCircle, Loader2, DollarSign, ShoppingCart, Coins, Wrench } from 'lucide-react';
 import { OrderService } from '../services/orderService';
 import { Order, OrderStatus } from '../types';
 
@@ -17,6 +17,8 @@ const DashboardView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
   const [profitMargin, setProfitMargin] = useState<number>(30);
+  const [isFixingTotals, setIsFixingTotals] = useState(false);
+  const [fixTotalsMessage, setFixTotalsMessage] = useState<string>('');
   const [analytics, setAnalytics] = useState<AnalyticsData>({
     totalOrders: 0,
     totalSales: 0,
@@ -106,6 +108,57 @@ const DashboardView: React.FC = () => {
     calculateAnalytics();
   }, [selectedPeriod, profitMargin]);
 
+  const handleFixTotals = async () => {
+    try {
+      setIsFixingTotals(true);
+      setFixTotalsMessage('');
+      
+      const result = await OrderService.fixOrderTotals();
+      
+      if (result.success) {
+        setFixTotalsMessage(result.message || 'Order totals fixed successfully!');
+        // Refresh analytics after fixing totals
+        const orders = await OrderService.getOrders();
+        const periodStartDate = getDateRange(selectedPeriod);
+        
+        let totalOrders = 0;
+        let totalSales = 0;
+        const profitMarginDecimal = profitMargin / 100;
+
+        orders.forEach(order => {
+          const orderDate = new Date(order.created_at);
+          
+          if (orderDate >= periodStartDate) {
+            totalOrders++;
+            
+            if (order.status === OrderStatus.DELIVERED) {
+              totalSales += order.total_amount;
+            }
+          }
+        });
+
+        const netProfit = totalSales * profitMarginDecimal;
+        const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+        setAnalytics({
+          totalOrders,
+          totalSales,
+          netProfit,
+          avgOrderValue
+        });
+      } else {
+        setFixTotalsMessage(`Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to fix totals:', error);
+      setFixTotalsMessage('Failed to fix totals. Please check the console for errors.');
+    } finally {
+      setIsFixingTotals(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setFixTotalsMessage(''), 5000);
+    }
+  };
+
   if (isLoading) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -118,38 +171,54 @@ const DashboardView: React.FC = () => {
   return (
     <div className="h-full flex flex-col overflow-y-auto custom-scrollbar pb-10">
         {/* Header with Filter */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="mb-6 flex flex-col gap-4">
             <div>
                 <h1 className="text-2xl font-bold text-black">Dashboard Analytics</h1>
                 <p className="text-black text-sm">Financial performance and sales overview</p>
             </div>
             
-            <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex flex-col gap-3">
+                {/* Fix Totals Button */}
+                <button
+                    onClick={handleFixTotals}
+                    disabled={isFixingTotals}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium text-sm hover:bg-yellow-600 disabled:bg-yellow-300 disabled:cursor-not-allowed transition-colors"
+                >
+                    {isFixingTotals ? (
+                        <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                        <Wrench size={16} />
+                    )}
+                    {isFixingTotals ? 'Fixing...' : 'Fix Order Totals'}
+                </button>
+                
                 {/* Profit Margin Input */}
-                <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200 flex-wrap justify-between">
                     <label htmlFor="profit-margin" className="text-sm font-medium text-black whitespace-nowrap">
                         Profit Margin:
                     </label>
-                    <input
-                        id="profit-margin"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={profitMargin}
-                        onChange={(e) => setProfitMargin(Math.min(100, Math.max(0, Number(e.target.value))))}
-                        className="w-16 px-2 py-1 text-sm font-medium text-black bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-brand-teal"
-                    />
-                    <span className="text-sm font-medium text-black">%</span>
+                    <div className="flex items-center gap-2">
+                        <input
+                            id="profit-margin"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={profitMargin}
+                            onChange={(e) => setProfitMargin(Math.min(100, Math.max(0, Number(e.target.value))))}
+                            className="w-16 px-2 py-1 text-sm font-medium text-black bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-brand-teal"
+                        />
+                        <span className="text-sm font-medium text-black">%</span>
+                    </div>
                 </div>
                 
                 {/* Period Filter */}
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap justify-start">
                     {(['day', 'week', 'month', 'quarter', 'year'] as FilterPeriod[]).map((period) => (
                         <button
                             key={period}
                             onClick={() => setSelectedPeriod(period)}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                            className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm transition-all ${
                                 selectedPeriod === period
                                     ? 'bg-brand-teal text-brand-orange shadow-md'
                                     : 'bg-white text-black hover:bg-amber-50 hover:text-brand-orange border border-gray-200'
@@ -161,6 +230,17 @@ const DashboardView: React.FC = () => {
                 </div>
             </div>
         </div>
+
+        {/* Fix Totals Message */}
+        {fixTotalsMessage && (
+            <div className={`mb-4 p-4 rounded-xl text-sm font-medium ${
+                fixTotalsMessage.includes('Error') 
+                    ? 'bg-red-50 text-red-700 border border-red-200' 
+                    : 'bg-green-50 text-green-700 border border-green-200'
+            }`}>
+                {fixTotalsMessage}
+            </div>
+        )}
 
         {/* Analytics KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -234,26 +314,26 @@ const DashboardView: React.FC = () => {
         </div>
 
         {/* Summary Card */}
-        <div className="bg-gradient-to-br from-brand-teal to-brand-teal/80 text-black p-8 rounded-2xl shadow-lg mb-6">
-            <div className="flex items-start gap-4">
-                <div className="p-3 bg-white/20 rounded-xl">
-                    <BarChart3 size={32} />
+        <div className="bg-gradient-to-br from-brand-teal to-brand-teal/80 text-black p-6 sm:p-8 rounded-2xl shadow-lg mb-6">
+            <div className="flex flex-col gap-4">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-white/20 rounded-xl">
+                        <BarChart3 size={32} />
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold">Performance Summary - {getPeriodLabel(selectedPeriod)}</h3>
                 </div>
-                <div className="flex-1">
-                    <h3 className="text-2xl font-bold mb-2">Performance Summary - {getPeriodLabel(selectedPeriod)}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div>
-                            <p className="text-black/70 text-sm">Orders Received</p>
-                            <p className="text-2xl font-bold">{analytics.totalOrders} orders</p>
-                        </div>
-                        <div>
-                            <p className="text-black/70 text-sm">Revenue Generated</p>
-                            <p className="text-2xl font-bold">{analytics.totalSales.toLocaleString()} EGP</p>
-                        </div>
-                        <div>
-                            <p className="text-black/70 text-sm">Estimated Profit</p>
-                            <p className="text-2xl font-bold">{analytics.netProfit.toLocaleString(undefined, {maximumFractionDigits: 0})} EGP</p>
-                        </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    <div>
+                        <p className="text-black/70 text-sm">Orders Received</p>
+                        <p className="text-xl sm:text-2xl font-bold">{analytics.totalOrders} orders</p>
+                    </div>
+                    <div>
+                        <p className="text-black/70 text-sm">Revenue Generated</p>
+                        <p className="text-xl sm:text-2xl font-bold">{analytics.totalSales.toLocaleString()} EGP</p>
+                    </div>
+                    <div>
+                        <p className="text-black/70 text-sm">Estimated Profit</p>
+                        <p className="text-xl sm:text-2xl font-bold">{analytics.netProfit.toLocaleString(undefined, {maximumFractionDigits: 0})} EGP</p>
                     </div>
                 </div>
             </div>

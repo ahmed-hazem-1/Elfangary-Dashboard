@@ -1,7 +1,22 @@
 @import "tailwindcss";
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: #FFFBEB;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea, select, button {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Custom scrollbar for the list area */
@@ -20,4 +35,31 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #F59E0B; /* Amber-500 */
+}
+
+/* Smooth animations for modals */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Mobile-friendly button padding */
+@media (max-width: 640px) {
+  button {
+    min-height: 44px;
+  }
+  
+  input, textarea, select {
+    min-height: 44px;
+  }
 }

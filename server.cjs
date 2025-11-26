@@ -139,31 +139,78 @@ app.get('/api/orders', async (req, res) => {
       SELECT 
         o.order_id,
         o.client_id,
-        c.full_name,
-        c.phone_number,
-        c.source,
+        COALESCE(c.full_name, 'Unknown Customer') as full_name,
+        COALESCE(c.phone_number, '') as phone_number,
+        COALESCE(c.source, 'external') as source,
         o.order_date,
         o.status,
         o.payment_type,
         o.total_amount,
-        o.shipping_address,
+        COALESCE(o.shipping_address, c.shipping_address, '') as shipping_address,
         json_agg(
           json_build_object(
-            'item_id', oi.item_id,
-            'item_name_ar', i.name,
-            'quantity', oi.quantity,
-            'unit_price_at_order', oi.price_at_purchase
+            'item_id', COALESCE(oi.item_id::text, 'unknown'),
+            'item_name_ar', COALESCE(i.name, 'Unknown Item'),
+            'quantity', COALESCE(oi.quantity, 1),
+            'unit_price_at_order', COALESCE(oi.price_at_purchase, 0)
           )
         ) FILTER (WHERE oi.id IS NOT NULL) as items
       FROM orders o
       LEFT JOIN clients c ON o.client_id = c.client_id
       LEFT JOIN order_items oi ON o.order_id = oi.order_id
       LEFT JOIN items i ON oi.item_id = i.item_id
-      GROUP BY o.order_id, o.client_id, c.full_name, c.phone_number, c.source, o.order_date, o.status, o.payment_type, o.total_amount, o.shipping_address
+      GROUP BY o.order_id, o.client_id, c.full_name, c.phone_number, c.source, o.order_date, o.status, o.payment_type, o.total_amount, o.shipping_address, c.shipping_address
       ORDER BY o.order_date DESC
     `);
     
     console.log(`[API] Database returned ${result.rows.length} orders`);
+    
+    // Debug: Check for orders without client relationships
+    const debugResult = await pool.query(`
+      SELECT 
+        COUNT(*) as total_orders,
+        COUNT(c.client_id) as orders_with_clients,
+        COUNT(*) - COUNT(c.client_id) as orders_without_clients
+      FROM orders o
+      LEFT JOIN clients c ON o.client_id = c.client_id
+    `);
+    
+    if (debugResult.rows[0]) {
+      const stats = debugResult.rows[0];
+      console.log(`[DEBUG] Order-Client relationship stats:`, {
+        total_orders: stats.total_orders,
+        orders_with_clients: stats.orders_with_clients,
+        orders_without_clients: stats.orders_without_clients
+      });
+    }
+    
+    // Debug: Log sample orders to understand the data structure
+    if (result.rows.length > 0) {
+      console.log('[DEBUG] Sample order data:');
+      result.rows.slice(0, 3).forEach((order, index) => {
+        console.log(`Order ${index + 1}:`, {
+          order_id: order.order_id,
+          client_id: order.client_id,
+          full_name: order.full_name,
+          source: order.source,
+          total_amount: order.total_amount,
+          items_count: order.items ? order.items.length : 0,
+          has_items: !!order.items && order.items.length > 0
+        });
+        
+        // Log first item details if available
+        if (order.items && order.items.length > 0 && order.items[0]) {
+          console.log(`  First item:`, order.items[0]);
+        }
+      });
+      
+      // Count orders with zero totals
+      const zeroTotalOrders = result.rows.filter(order => 
+        order.total_amount === null || order.total_amount === 0
+      );
+      console.log(`[DEBUG] Orders with zero total_amount: ${zeroTotalOrders.length} out of ${result.rows.length}`);
+    }
+    
     res.json(result.rows);
   } catch (error) {
     console.error('[API] Database error:', error.message);
@@ -216,11 +263,20 @@ app.post('/api/orders', async (req, res) => {
 
     // Calculate total amount
     for (const item of items) {
-      const itemResult = await pool.query('SELECT price FROM items WHERE item_id = $1', [item.item_id]);
-      if (itemResult.rows.length > 0) {
-        const price = parseFloat(itemResult.rows[0].price);
-        totalAmount += price * item.quantity;
+      // Use provided unit_price_at_order if available, otherwise look it up
+      let price = item.unit_price_at_order;
+      
+      if (!price) {
+        const itemResult = await pool.query('SELECT price FROM items WHERE item_id = $1', [item.item_id]);
+        if (itemResult.rows.length > 0) {
+          price = parseFloat(itemResult.rows[0].price);
+        } else {
+          console.warn(`[API] Item ${item.item_id} not found in menu, using 0`);
+          price = 0;
+        }
       }
+      
+      totalAmount += parseFloat(price) * item.quantity;
     }
 
     // Create the order
@@ -235,14 +291,22 @@ app.post('/api/orders', async (req, res) => {
 
     // Add order items
     for (const item of items) {
-      const itemResult = await pool.query('SELECT price FROM items WHERE item_id = $1', [item.item_id]);
-      if (itemResult.rows.length > 0) {
-        const price = parseFloat(itemResult.rows[0].price);
-        await pool.query(
-          'INSERT INTO order_items (order_id, item_id, quantity, price_at_purchase) VALUES ($1, $2, $3, $4)',
-          [orderId, item.item_id, item.quantity, price]
-        );
+      // Use provided unit_price_at_order if available, otherwise look it up
+      let price = item.unit_price_at_order;
+      
+      if (!price) {
+        const itemResult = await pool.query('SELECT price FROM items WHERE item_id = $1', [item.item_id]);
+        if (itemResult.rows.length > 0) {
+          price = parseFloat(itemResult.rows[0].price);
+        } else {
+          price = 0;
+        }
       }
+      
+      await pool.query(
+        'INSERT INTO order_items (order_id, item_id, quantity, price_at_purchase) VALUES ($1, $2, $3, $4)',
+        [orderId, item.item_id, item.quantity, parseFloat(price)]
+      );
     }
 
     console.log(`[API] Created new order ${orderId} with total amount ${totalAmount}`);
@@ -349,30 +413,40 @@ app.get('/api/menu', async (req, res) => {
  */
 app.post('/api/menu/toggle', async (req, res) => {
   try {
-    const { item_id } = req.body;
+    const { item_id, is_available } = req.body;
 
     if (!item_id) {
       return res.status(400).json({ error: 'Missing item_id' });
     }
 
-    const result = await pool.query(
-      'UPDATE items SET is_available = NOT is_available WHERE item_id = $1 RETURNING *',
-      [item_id]
-    );
+    let result;
+    if (is_available !== undefined) {
+      // Set specific availability status
+      result = await pool.query(
+        'UPDATE items SET is_available = $1 WHERE item_id = $2 RETURNING *',
+        [is_available, item_id]
+      );
+    } else {
+      // Toggle availability
+      result = await pool.query(
+        'UPDATE items SET is_available = NOT is_available WHERE item_id = $1 RETURNING *',
+        [item_id]
+      );
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Menu item not found' });
     }
 
-    console.log(`[API] Toggled item ${item_id} availability to ${result.rows[0].is_available}`);
+    console.log(`[API] Updated item ${item_id} availability to ${result.rows[0].is_available}`);
     res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     console.error('[API] Database error:', error.message);
     // Fallback to mock data
     const item = mockMenu.find(m => m.item_id === item_id);
     if (item) {
-      item.is_available = !item.is_available;
-      console.log(`[API] Toggled mock item ${item_id} availability to ${item.is_available}`);
+      item.is_available = is_available !== undefined ? is_available : !item.is_available;
+      console.log(`[API] Updated mock item ${item_id} availability to ${item.is_available}`);
       res.json({ success: true, item });
     } else {
       res.status(500).json({ error: 'Failed to toggle menu item' });
@@ -386,7 +460,7 @@ app.post('/api/menu/toggle', async (req, res) => {
  */
 app.post('/api/menu/update', async (req, res) => {
   try {
-    const { item_id, item_name_ar, description, price, old_price, stock_quantity, image_url } = req.body;
+    const { item_id, name, description, price, old_price, stock_quantity, image_url } = req.body;
 
     if (!item_id) {
       return res.status(400).json({ error: 'Missing item_id' });
@@ -396,9 +470,9 @@ app.post('/api/menu/update', async (req, res) => {
     const values = [];
     let paramIndex = 1;
 
-    if (item_name_ar !== undefined) {
+    if (name !== undefined) {
       updates.push(`name = $${paramIndex++}`);
-      values.push(item_name_ar);
+      values.push(name);
     }
     if (description !== undefined) {
       updates.push(`description = $${paramIndex++}`);
@@ -457,28 +531,41 @@ app.post('/api/menu/update', async (req, res) => {
  */
 app.post('/api/menu/add', async (req, res) => {
   try {
-    const { item_id, item_name_ar, description, price, old_price, stock_quantity, is_available, image_url } = req.body;
+    const { name, description, price, category, old_price, stock_quantity, is_available, image_url } = req.body;
 
-    if (!item_id || !item_name_ar || !price) {
-      return res.status(400).json({ error: 'Missing required fields: item_id, item_name_ar, price' });
+    if (!name || !price) {
+      return res.status(400).json({ error: 'Missing required fields: name, price' });
     }
 
     const result = await pool.query(
       `INSERT INTO items (name, description, price, old_price, stock_quantity, is_available, image_url)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [item_name_ar, description || '', price, old_price || null, stock_quantity || 0, is_available !== false, image_url || '']
+      [name, description || '', parseFloat(price), old_price || null, stock_quantity || 0, is_available !== false, image_url || '']
     );
 
-    console.log(`[API] Added new menu item ${item_id}`);
+    console.log(`[API] Added new menu item:`, result.rows[0]);
     res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     console.error('[API] Database error:', error.message);
-    // Fallback to mock data
-    const newItem = req.body;
-    mockMenu.push(newItem);
-    console.log(`[API] Added new mock menu item ${newItem.item_id}`);
-    res.json({ success: true, item: newItem });
+    
+    if (!dbConnected) {
+      // Fallback to mock data when DB is not connected
+      const newItem = {
+        item_id: 'I' + (Math.max(...mockMenu.map(m => parseInt(m.item_id.substring(1)))) + 1).toString().padStart(3, '0'),
+        item_name_ar: name,
+        item_name_en: name,
+        description: description || '',
+        price: parseFloat(price),
+        is_available: is_available !== false,
+        image_url: image_url || ''
+      };
+      mockMenu.push(newItem);
+      console.log(`[API] Added new mock menu item:`, newItem);
+      res.json({ success: true, item: newItem });
+    } else {
+      res.status(500).json({ error: 'Failed to add menu item: ' + error.message });
+    }
   }
 });
 
@@ -535,7 +622,75 @@ app.delete('/api/orders/:orderId', async (req, res) => {
 });
 
 /**
- * Health check endpoint
+ * GET /api/debug/tables
+ * Debug endpoint to check table structures and sample data
+ */
+app.get('/api/debug/tables', async (req, res) => {
+  try {
+    console.log('[DEBUG] Checking table structures...');
+    
+    // Check orders table structure
+    const ordersStructure = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default 
+      FROM information_schema.columns 
+      WHERE table_name = 'orders' 
+      ORDER BY ordinal_position
+    `);
+    
+    // Check clients table structure
+    const clientsStructure = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default 
+      FROM information_schema.columns 
+      WHERE table_name = 'clients' 
+      ORDER BY ordinal_position
+    `);
+    
+    // Check order_items table structure
+    const orderItemsStructure = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default 
+      FROM information_schema.columns 
+      WHERE table_name = 'order_items' 
+      ORDER BY ordinal_position
+    `);
+    
+    // Get sample orders data (first 5 orders)
+    const sampleOrders = await pool.query(`
+      SELECT * FROM orders 
+      ORDER BY order_date DESC 
+      LIMIT 5
+    `);
+    
+    // Get sample order_items data
+    const sampleOrderItems = await pool.query(`
+      SELECT * FROM order_items 
+      WHERE order_id IN (SELECT order_id FROM orders ORDER BY order_date DESC LIMIT 3)
+    `);
+    
+    res.json({
+      success: true,
+      tables: {
+        orders: {
+          structure: ordersStructure.rows,
+          sample_data: sampleOrders.rows
+        },
+        clients: {
+          structure: clientsStructure.rows
+        },
+        order_items: {
+          structure: orderItemsStructure.rows,
+          sample_data: sampleOrderItems.rows
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[DEBUG] Error checking tables:', error);
+    res.status(500).json({ error: 'Failed to check table structure: ' + error.message });
+  }
+});
+
+/**
+ * GET /api/health
+ * Health check endpoint with debug info
  */
 app.get('/api/health', async (req, res) => {
   let dbStatus = 'disconnected';
@@ -553,6 +708,33 @@ app.get('/api/health', async (req, res) => {
       dbStatus = 'connected';
       healthInfo.database = 'connected';
       healthInfo.mode = 'database';
+      
+      // Add debug info about tables if requested
+      if (req.query.debug === 'true') {
+        try {
+          // Check orders table structure
+          const ordersStructure = await pool.query(`
+            SELECT column_name, data_type, is_nullable 
+            FROM information_schema.columns 
+            WHERE table_name = 'orders' 
+            ORDER BY ordinal_position
+          `);
+          
+          // Get sample orders data (first 3 orders)
+          const sampleOrders = await pool.query(`
+            SELECT * FROM orders 
+            ORDER BY order_date DESC 
+            LIMIT 3
+          `);
+          
+          healthInfo.debug = {
+            orders_table_structure: ordersStructure.rows,
+            sample_orders: sampleOrders.rows
+          };
+        } catch (debugError) {
+          healthInfo.debug = { error: debugError.message };
+        }
+      }
     } catch (err) {
       dbStatus = 'error: ' + err.message;
       healthInfo.database = 'error';
@@ -564,6 +746,54 @@ app.get('/api/health', async (req, res) => {
   res.json(healthInfo);
 });
 
+/**
+ * POST /api/fix-totals
+ * Recalculate and fix total amounts for existing orders
+ */
+app.post('/api/fix-totals', async (req, res) => {
+  try {
+    console.log('[API] Starting total amount fix for existing orders...');
+    
+    // Get all orders that need fixing
+    const ordersResult = await pool.query(`
+      SELECT o.order_id, 
+             COALESCE(SUM(oi.quantity * oi.price_at_purchase), 0) as calculated_total,
+             o.total_amount as current_total
+      FROM orders o
+      LEFT JOIN order_items oi ON o.order_id = oi.order_id
+      GROUP BY o.order_id, o.total_amount
+      HAVING o.total_amount != COALESCE(SUM(oi.quantity * oi.price_at_purchase), 0)
+         OR o.total_amount = 0
+    `);
+
+    const ordersToFix = ordersResult.rows;
+    console.log(`[API] Found ${ordersToFix.length} orders to fix`);
+
+    let fixedCount = 0;
+    for (const order of ordersToFix) {
+      await pool.query(
+        'UPDATE orders SET total_amount = $1 WHERE order_id = $2',
+        [order.calculated_total, order.order_id]
+      );
+      console.log(`[API] Fixed order ${order.order_id}: ${order.current_total} → ${order.calculated_total}`);
+      fixedCount++;
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Fixed ${fixedCount} orders`, 
+      fixed_orders: ordersToFix.map(o => ({
+        order_id: o.order_id,
+        old_total: o.current_total,
+        new_total: o.calculated_total
+      }))
+    });
+  } catch (error) {
+    console.error('[API] Error fixing totals:', error);
+    res.status(500).json({ error: 'Failed to fix totals: ' + error.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`\n✅ Server running at http://localhost:${PORT}`);
@@ -571,10 +801,12 @@ app.listen(PORT, () => {
   console.log(`\nDatabase: ${process.env.DATABASE_URL ? 'PostgreSQL (configured)' : 'Mock data mode'}`);
   console.log(`\nAvailable endpoints:`);
   console.log(`  GET    /api/health`);
+  console.log(`  GET    /api/debug/tables`);
   console.log(`  GET    /api/orders`);
   console.log(`  POST   /api/orders`);
   console.log(`  DELETE /api/orders/:orderId`);
   console.log(`  POST   /api/orders/update-status`);
+  console.log(`  POST   /api/fix-totals`);
   console.log(`  GET    /api/menu`);
   console.log(`  POST   /api/menu/toggle`);
   console.log(`  POST   /api/menu/update`);

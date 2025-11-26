@@ -133,14 +133,14 @@ const MenuView: React.FC = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="mb-6 flex justify-between items-end">
+      <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Inventory Management</h1>
           <p className="text-gray-500 text-sm">Manage honey products, prices, and stock</p>
         </div>
         <button 
             onClick={() => setIsAddingNew(true)}
-            className="text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all"
+            className="w-full sm:w-auto text-white px-4 py-2 rounded-lg shadow-lg flex items-center justify-center sm:justify-start gap-2 transition-all"
             style={{ backgroundColor: '#F59E0B' }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D97706'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F59E0B'}
@@ -151,8 +151,8 @@ const MenuView: React.FC = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-96">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col gap-4 justify-between items-stretch">
+        <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} strokeWidth={2} />
             <input 
                 type="text" 
@@ -201,8 +201,8 @@ const MenuView: React.FC = () => {
 
       {/* Edit Modal */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-slide-up overflow-hidden">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm overflow-hidden">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-slide-up overflow-hidden mx-4 sm:mx-0">
                 <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-gray-800">Edit Product</h3>
                     <button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-gray-600">
@@ -244,7 +244,13 @@ const MenuView: React.FC = () => {
                         <button type="button" onClick={() => setEditingItem(null)} className="flex-1 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors">
                             Cancel
                         </button>
-                        <button type="submit" className="flex-1 py-3 rounded-xl font-semibold text-white bg-brand-teal shadow-lg shadow-brand-teal/30 hover:bg-brand-tealDark transition-colors flex items-center justify-center gap-2">
+                        <button 
+                            type="submit" 
+                            className="flex-1 py-3 rounded-xl font-semibold text-white shadow-lg transition-colors flex items-center justify-center gap-2"
+                            style={{ backgroundColor: '#D97706', boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3), 0 4px 6px -4px rgba(217, 119, 6, 0.3)' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#B45309')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#D97706')}
+                        >
                             <Save size={18} strokeWidth={2} /> Save Changes
                         </button>
                     </div>
@@ -255,8 +261,8 @@ const MenuView: React.FC = () => {
 
       {/* Add Modal */}
       {isAddingNew && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-slide-up overflow-hidden">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm overflow-hidden">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-slide-up overflow-hidden mx-4 sm:mx-0">
                 <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-gray-800">Add New Product</h3>
                     <button onClick={() => setIsAddingNew(false)} className="text-gray-400 hover:text-gray-600">
@@ -299,7 +305,7 @@ const MenuView: React.FC = () => {
                         <button type="button" onClick={() => setIsAddingNew(false)} className="flex-1 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors">
                             Cancel
                         </button>
-                        <button type="submit" className="flex-1 py-3 rounded-xl font-semibold text-white bg-brand-teal shadow-lg shadow-brand-teal/30 hover:bg-brand-tealDark transition-colors flex items-center justify-center gap-2">
+                        <button type="submit" className="flex-1 py-3 rounded-xl font-semibold text-white bg-green-600 shadow-lg shadow-green-600/30 hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
                             <Plus size={18} strokeWidth={2} /> Add Product
                         </button>
                     </div>

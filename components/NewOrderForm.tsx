@@ -143,10 +143,10 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl animate-slide-up overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm overflow-hidden">
+      <div className="bg-white w-full max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl animate-slide-up overflow-hidden max-h-[90vh] sm:max-h-[85vh] flex flex-col mx-4 sm:mx-0">
+        <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center sticky top-0 z-10">
+          <h3 className="font-bold text-gray-800 flex items-center gap-2 text-base sm:text-lg">
             <ShoppingCart size={20} strokeWidth={2} />
             Create New Order
           </h3>
@@ -156,21 +156,21 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
-          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+          <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 max-h-[calc(90vh-180px)] sm:max-h-[calc(85vh-180px)]">
             {/* Customer Information */}
             <div>
               <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <User size={16} strokeWidth={2} />
                 Customer Information (Optional)
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Customer Name</label>
                   <input
                     type="text"
                     value={customer_name}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-teal/20 outline-none font-medium"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-teal/20 outline-none font-medium text-sm"
                     placeholder="e.g., Ahmed Hassan"
                   />
                 </div>
@@ -183,7 +183,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
                     type="tel"
                     value={phone_number}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-teal/20 outline-none font-medium"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-teal/20 outline-none font-medium text-sm"
                     placeholder="e.g., 01001234567"
                   />
                 </div>
@@ -196,7 +196,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
                 <textarea
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-teal/20 outline-none h-20 resize-none"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-teal/20 outline-none h-20 resize-none text-sm"
                   placeholder="e.g., 123 Main St, Cairo, Egypt"
                 />
               </div>
@@ -204,24 +204,24 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
 
             {/* Available Items */}
             <div>
-              <h4 className="font-semibold text-gray-700 mb-3">Available Products</h4>
+              <h4 className="font-semibold text-gray-700 mb-3 text-sm">Available Products</h4>
               {isLoading ? (
-                <div className="text-center py-4">Loading products...</div>
+                <div className="text-center py-4 text-sm">Loading products...</div>
               ) : (
-                <div className="grid grid-cols-1 gap-3 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-52 overflow-y-auto">
                   {availableItems.map(item => (
-                    <div key={item.item_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:border-brand-teal/30 transition-colors">
-                      <div className="flex-1">
-                        <h5 className="font-medium text-gray-800" dir="rtl">{item.item_name_ar}</h5>
-                        <p className="text-sm text-gray-500">{item.price} EGP</p>
+                    <div key={item.item_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:border-brand-teal/30 transition-colors gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-medium text-gray-800 text-sm truncate" dir="rtl">{item.item_name_ar}</h5>
+                        <p className="text-xs text-gray-500">{item.price} EGP</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => addItemToOrder(item)}
-                        className="px-3 py-1 bg-brand-teal text-green-600 rounded-lg text-sm font-medium hover:bg-brand-tealDark transition-colors flex items-center gap-1"
+                        className="px-2 py-1 sm:px-3 sm:py-1 bg-brand-teal text-green-600 rounded-lg text-xs sm:text-sm font-medium hover:bg-brand-tealDark transition-colors flex items-center gap-1 whitespace-nowrap"
                       >
                         <Plus size={16} strokeWidth={2} />
-                        Add
+                        <span className="hidden sm:inline">Add</span>
                       </button>
                     </div>
                   ))}
@@ -232,15 +232,15 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
             {/* Order Items */}
             {orderItems.length > 0 && (
               <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Order Items</h4>
-                <div className="space-y-3">
+                <h4 className="font-semibold text-gray-700 mb-3 text-sm">Order Items ({orderItems.length})</h4>
+                <div className="space-y-3 max-h-48 overflow-y-auto">
                   {orderItems.map(orderItem => (
-                    <div key={orderItem.item_id} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200">
-                      <div className="flex-1">
-                        <h5 className="font-medium text-gray-800" dir="rtl">{orderItem.item.item_name_ar}</h5>
-                        <p className="text-sm text-gray-500">{orderItem.item.price} EGP each</p>
+                    <div key={orderItem.item_id} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200 gap-3 flex-wrap sm:flex-nowrap">
+                      <div className="flex-1 min-w-0 sm:min-w-fit">
+                        <h5 className="font-medium text-gray-800 text-sm truncate" dir="rtl">{orderItem.item.item_name_ar}</h5>
+                        <p className="text-xs text-gray-500">{orderItem.item.price} EGP each</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 ml-auto">
                         <button
                           type="button"
                           onClick={() => updateItemQuantity(orderItem.item_id, orderItem.quantity - 1)}
@@ -248,7 +248,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
                         >
                           <Minus size={16} strokeWidth={2} />
                         </button>
-                        <span className="font-medium text-gray-700 min-w-[2rem] text-center">{orderItem.quantity}</span>
+                        <span className="font-medium text-gray-700 min-w-[2rem] text-center text-sm">{orderItem.quantity}</span>
                         <button
                           type="button"
                           onClick={() => updateItemQuantity(orderItem.item_id, orderItem.quantity + 1)}
@@ -256,7 +256,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
                         >
                           <Plus size={16} strokeWidth={2} />
                         </button>
-                        <span className="font-bold text-gray-800 ml-3 min-w-[4rem] text-right">
+                        <span className="font-bold text-gray-800 ml-2 min-w-[3.5rem] text-right text-sm">
                           {(orderItem.item.price * orderItem.quantity).toFixed(2)} EGP
                         </span>
                       </div>
@@ -266,25 +266,25 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
                 <div className="mt-4 p-4 bg-gray-100 rounded-xl">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-gray-700">Total Amount:</span>
-                    <span className="font-bold text-xl text-gray-900">{calculateTotal().toFixed(2)} EGP</span>
+                    <span className="font-bold text-lg sm:text-xl text-gray-900">{calculateTotal().toFixed(2)} EGP</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="p-6 border-t border-gray-100 flex gap-3">
+          <div className="p-4 sm:p-6 border-t border-gray-100 flex flex-col sm:flex-row gap-3 sticky bottom-0 bg-white shadow-lg">
             <button 
               type="button" 
               onClick={onClose} 
-              className="flex-1 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+              className="flex-1 py-2 sm:py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors text-sm"
               disabled={isSubmitting}
             >
               Cancel
             </button>
             <button 
               type="submit" 
-              className="flex-1 py-3 rounded-xl font-semibold text-black bg-brand-orange shadow-lg shadow-brand-orange/30 hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-2 sm:py-3 rounded-xl font-semibold text-black bg-brand-orange shadow-lg shadow-brand-orange/30 hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               disabled={isSubmitting || orderItems.length === 0}
             >
               {isSubmitting ? (
@@ -292,7 +292,8 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
               ) : (
                 <>
                   <ShoppingCart size={18} strokeWidth={2} />
-                  Create Order
+                  <span className="hidden sm:inline">Create Order</span>
+                  <span className="sm:hidden">Create</span>
                 </>
               )}
             </button>

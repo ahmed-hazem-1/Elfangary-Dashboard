@@ -15,7 +15,7 @@ const StatsBar: React.FC<StatsBarProps> = ({ orders }) => {
   );
   
   const stats = [Source.TELEGRAM, Source.WEB, Source.WHATSAPP, Source.DINE_IN].map(source => {
-    const count = activeOrders.filter(o => o.customer.source === source).length;
+    const count = activeOrders.filter(o => o.customer?.source === source).length;
     const Icon = SOURCE_ICONS[source] || SOURCE_ICONS[Source.WEB];
     const colorClass = SOURCE_COLORS[source] || SOURCE_COLORS[Source.WEB];
 

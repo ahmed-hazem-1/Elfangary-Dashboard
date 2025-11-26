@@ -81,8 +81,10 @@ const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
   };
 
   const filteredOrders = orders.filter(o => {
-    const matchesSearch = o.customer.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          o.order_id.toLowerCase().includes(searchQuery.toLowerCase());
+    const customerName = o.customer?.full_name || 'Unknown Customer';
+    const orderId = o.order_id?.toString() || '';
+    const matchesSearch = customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          orderId.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
@@ -107,15 +109,15 @@ const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 mb-6">
             <div>
                 <h1 className="text-2xl font-bold text-gray-800">Live Orders</h1>
                 <p className="text-gray-500 text-sm">Real-time kitchen display and status management</p>
             </div>
 
             {/* Search & Actions */}
-            <div className="flex items-center gap-4">
-                <div className="relative hidden md:block w-64">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                <div className="relative flex-1 sm:flex-none sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
                         type="text" 

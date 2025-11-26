@@ -14,10 +14,17 @@ export const WEBHOOK_CONFIG = {
     UPDATE_ORDER_URL: isDevelopment 
         ? `${API_BASE_URL}/orders/update-status`
         : `${API_BASE_URL}/orders-update`,
+    FIX_TOTALS_URL: `${API_BASE_URL}/fix-totals`,
     GET_MENU_URL: `${API_BASE_URL}/menu`,
-    TOGGLE_MENU_URL: `${API_BASE_URL}/menu-toggle`,
-    UPDATE_MENU_URL: `${API_BASE_URL}/menu-update`,
-    ADD_MENU_URL: `${API_BASE_URL}/menu-add`,
+    TOGGLE_MENU_URL: isDevelopment 
+        ? `${API_BASE_URL}/menu/toggle`
+        : `${API_BASE_URL}/menu-toggle`,
+    UPDATE_MENU_URL: isDevelopment 
+        ? `${API_BASE_URL}/menu/update`
+        : `${API_BASE_URL}/menu-update`,
+    ADD_MENU_URL: isDevelopment 
+        ? `${API_BASE_URL}/menu/add`
+        : `${API_BASE_URL}/menu-add`,
     AUTO_REFRESH_INTERVAL_MS: 10000, // 10 seconds
     HEADERS: {
         'Content-Type': 'application/json'

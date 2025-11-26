@@ -32,13 +32,13 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { item_id, item_name_ar, description, price, old_price, stock_quantity, is_available, image_url } = JSON.parse(body || '{}');
+    const { name, description, price, category, old_price, stock_quantity, is_available, image_url } = JSON.parse(body || '{}');
 
-    if (!item_id || !item_name_ar || !price) {
+    if (!name || !price) {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Missing required fields: item_id, item_name_ar, price' })
+        body: JSON.stringify({ error: 'Missing required fields: name, price' })
       };
     }
 
@@ -47,8 +47,10 @@ exports.handler = async (event, context) => {
         `INSERT INTO items (name, description, price, old_price, stock_quantity, is_available, image_url)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
-        [item_name_ar, description || '', price, old_price || null, stock_quantity || 0, is_available !== false, image_url || '']
+        [name, description || '', price, old_price || null, stock_quantity || 0, is_available !== false, image_url || '']
       );
+
+      console.log('Successfully added new item:', result.rows[0]);
 
       return {
         statusCode: 200,

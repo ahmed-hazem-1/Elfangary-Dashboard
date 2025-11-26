@@ -151,6 +151,32 @@ export const OrderService = {
         error: error instanceof Error ? error.message : 'Unknown error occurred'
       };
     }
+  },
+
+  /**
+   * Fixes order totals by recalculating them on the server
+   */
+  async fixOrderTotals(): Promise<{success: boolean; message?: string; error?: string}> {
+    try {
+      const response = await fetch(WEBHOOK_CONFIG.FIX_TOTALS_URL, {
+        method: 'POST',
+        headers: WEBHOOK_CONFIG.HEADERS
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fix totals: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[API] Fixed order totals:', result.message);
+      return { success: true, message: result.message };
+    } catch (error) {
+      console.error('[API] Failed to fix order totals:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
   }
 };
 
@@ -165,6 +191,21 @@ function mapDbOrderToAppOrder(dbOrder: any): Order {
     else if (rawSource.includes('whatsapp')) source = Source.WHATSAPP;
     else if (rawSource.includes('dine')) source = Source.DINE_IN;
 
+    // Map items first
+    const items = (dbOrder.items || []).map((item: any, idx: number) => ({
+        item_id: item.item_id || `unknown_${idx}`,
+        item_name_ar: item.item_name_ar || 'Unknown Item',
+        quantity: item.quantity || 1,
+        unit_price_at_order: parseFloat(item.unit_price_at_order || 0)
+    }));
+
+    // Calculate total from items if database total is 0 or missing
+    let totalAmount = parseFloat(dbOrder.total_amount || 0);
+    if (totalAmount === 0 && items.length > 0) {
+        totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price_at_order), 0);
+        console.log(`[OrderService] Calculated total for order ${dbOrder.order_id}: ${totalAmount} EGP`);
+    }
+
     return {
         order_id: dbOrder.order_id,
         restaurant_id: 3, 
@@ -172,7 +213,7 @@ function mapDbOrderToAppOrder(dbOrder: any): Order {
         notes: dbOrder.payment_type ? `Payment: ${dbOrder.payment_type}` : '', // Mapping payment info to notes for visibility
         created_at: createdAt,
         time_elapsed: calculateTimeElapsed(createdAt),
-        total_amount: parseFloat(dbOrder.total_amount || 0),
+        total_amount: totalAmount,
         is_paid: dbOrder.status !== 'canceled', 
         address: dbOrder.shipping_address || dbOrder.client_address || '',
         
@@ -184,12 +225,7 @@ function mapDbOrderToAppOrder(dbOrder: any): Order {
             full_address: dbOrder.shipping_address || dbOrder.client_address || ''
         },
         
-        items: (dbOrder.items || []).map((item: any, idx: number) => ({
-            item_id: item.item_id || `unknown_${idx}`,
-            item_name_ar: item.item_name_ar || 'Unknown Item',
-            quantity: item.quantity || 1,
-            unit_price_at_order: parseFloat(item.unit_price_at_order || 0)
-        }))
+        items: items
     };
 }
 

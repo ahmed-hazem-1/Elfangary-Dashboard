@@ -12,7 +12,11 @@ interface OrderModalProps {
 const OrderModal: React.FC<OrderModalProps> = ({ order, onClose, onStatusChange }) => {
   if (!order) return null;
   
-  const deliveryAddress = order.address || order.customer.full_address;
+  const deliveryAddress = order.address || order.customer?.full_address;
+  
+  // Calculate total from items as fallback if order.total_amount is 0
+  const calculatedTotal = order.items.reduce((sum, item) => sum + (item.quantity * item.unit_price_at_order), 0);
+  const displayTotal = order.total_amount > 0 ? order.total_amount : calculatedTotal;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
@@ -40,10 +44,10 @@ const OrderModal: React.FC<OrderModalProps> = ({ order, onClose, onStatusChange 
           <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-brand-orange/20 text-brand-orange flex items-center justify-center font-bold text-lg">
-                {order.customer.full_name.charAt(0)}
+                {(order.customer?.full_name || 'U').charAt(0)}
               </div>
               <div>
-                <p className="font-semibold text-gray-800">{order.customer.full_name}</p>
+                <p className="font-semibold text-gray-800">{order.customer?.full_name || 'Unknown Customer'}</p>
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Clock size={14} strokeWidth={2} />
                   <span>Ordered {order.time_elapsed} ago</span>
@@ -55,7 +59,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ order, onClose, onStatusChange 
 
             <div className="flex items-start gap-3 text-sm text-gray-600">
                 <Phone size={16} strokeWidth={2} className="mt-0.5 text-brand-teal" />
-                <span>{order.customer.phone_number}</span>
+                <span>{order.customer?.phone_number || 'No phone number'}</span>
             </div>
             <div className="flex items-start gap-3 text-sm text-gray-600">
                 <MapPin size={16} strokeWidth={2} className="mt-0.5 text-brand-teal" />
@@ -95,7 +99,10 @@ const OrderModal: React.FC<OrderModalProps> = ({ order, onClose, onStatusChange 
             <div className="flex justify-between items-center mb-6">
                 <span className="text-gray-500 font-medium">Total Amount</span>
                 <div className="text-right">
-                    <span className="text-2xl font-bold text-brand-teal">{order.total_amount.toLocaleString()} EGP</span>
+                    <span className="text-2xl font-bold text-brand-teal">{displayTotal.toLocaleString()} EGP</span>
+                    {order.total_amount === 0 && calculatedTotal > 0 && (
+                        <p className="text-xs text-yellow-600 mt-1">Calculated from items</p>
+                    )}
                 </div>
             </div>
 
