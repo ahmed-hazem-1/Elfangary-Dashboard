@@ -9,10 +9,12 @@ const PORT = process.env.PORT || 3001;
 // PostgreSQL Connection Pool
 const dbConfig = {
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/elfangary_db',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 5000,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, // Enable SSL for Supabase
+  connectionTimeoutMillis: 10000, // Increased timeout
   idleTimeoutMillis: 30000,
-  max: 20
+  max: 10, // Reduced for Supabase pooler
+  min: 2,
+  application_name: 'elfangary_dashboard'
 };
 
 console.log(`[Database] Attempting to connect to: ${dbConfig.connectionString.split('@')[1] || 'local'}`);
@@ -21,18 +23,24 @@ const pool = new Pool(dbConfig);
 
 let dbConnected = false;
 
-// Test database connection
-pool.connect((err, client, release) => {
-  if (err) {
+// Test database connection with retry logic
+async function testConnection() {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
+    console.log('✅ Connected to PostgreSQL database');
+    dbConnected = true;
+  } catch (err) {
     console.error('❌ Error connecting to database:', err.message);
     console.log('⚠️  Falling back to mock data mode');
+    console.log('💡 Tip: Check your DATABASE_URL in .env file');
     dbConnected = false;
-  } else {
-    console.log('✅ Connected to PostgreSQL database');
-    release();
-    dbConnected = true;
   }
-});
+}
+
+// Attempt connection on startup
+testConnection();
 
 // Set up error handler for connection pool
 pool.on('error', (err) => {
@@ -132,6 +140,12 @@ const mockMenu = [
  * Fetches all orders from database
  */
 app.get('/api/orders', async (req, res) => {
+  // Use mock data if database is not connected
+  if (!dbConnected) {
+    console.log('[API] Using mock data (database not connected)');
+    return res.json(mockOrders);
+  }
+
   try {
     console.log('[API] Fetching orders from database...');
     
@@ -164,58 +178,10 @@ app.get('/api/orders', async (req, res) => {
     `);
     
     console.log(`[API] Database returned ${result.rows.length} orders`);
-    
-    // Debug: Check for orders without client relationships
-    const debugResult = await pool.query(`
-      SELECT 
-        COUNT(*) as total_orders,
-        COUNT(c.client_id) as orders_with_clients,
-        COUNT(*) - COUNT(c.client_id) as orders_without_clients
-      FROM orders o
-      LEFT JOIN clients c ON o.client_id = c.client_id
-    `);
-    
-    if (debugResult.rows[0]) {
-      const stats = debugResult.rows[0];
-      console.log(`[DEBUG] Order-Client relationship stats:`, {
-        total_orders: stats.total_orders,
-        orders_with_clients: stats.orders_with_clients,
-        orders_without_clients: stats.orders_without_clients
-      });
-    }
-    
-    // Debug: Log sample orders to understand the data structure
-    if (result.rows.length > 0) {
-      console.log('[DEBUG] Sample order data:');
-      result.rows.slice(0, 3).forEach((order, index) => {
-        console.log(`Order ${index + 1}:`, {
-          order_id: order.order_id,
-          client_id: order.client_id,
-          full_name: order.full_name,
-          source: order.source,
-          total_amount: order.total_amount,
-          items_count: order.items ? order.items.length : 0,
-          has_items: !!order.items && order.items.length > 0
-        });
-        
-        // Log first item details if available
-        if (order.items && order.items.length > 0 && order.items[0]) {
-          console.log(`  First item:`, order.items[0]);
-        }
-      });
-      
-      // Count orders with zero totals
-      const zeroTotalOrders = result.rows.filter(order => 
-        order.total_amount === null || order.total_amount === 0
-      );
-      console.log(`[DEBUG] Orders with zero total_amount: ${zeroTotalOrders.length} out of ${result.rows.length}`);
-    }
-    
     res.json(result.rows);
   } catch (error) {
     console.error('[API] Database error:', error.message);
-    // Fallback to mock data if database fails
-    console.log('[API] Falling back to mock data');
+    dbConnected = false; // Mark as disconnected for future requests
     res.json(mockOrders);
   }
 });
@@ -351,28 +317,32 @@ app.post('/api/orders/update-status', async (req, res) => {
       return res.status(400).json({ error: 'Missing order_id or new_status' });
     }
 
-    const result = await pool.query(
-      'UPDATE orders SET status = $1 WHERE order_id = $2 RETURNING *',
-      [new_status, order_id]
-    );
+    if (dbConnected) {
+      const result = await pool.query(
+        'UPDATE orders SET status = $1 WHERE order_id = $2 RETURNING *',
+        [new_status, order_id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      console.log(`[API] Updated order ${order_id} status to ${new_status}`);
+      res.json({ success: true, order: result.rows[0] });
+    } else {
+      // Fallback to mock data update
+      const order = mockOrders.find(o => o.order_id === parseInt(order_id));
+      if (order) {
+        order.status = new_status;
+        console.log(`[API] Updated mock order ${order_id} status to ${new_status}`);
+        res.json({ success: true, order });
+      } else {
+        res.status(404).json({ error: 'Order not found' });
+      }
     }
-
-    console.log(`[API] Updated order ${order_id} status to ${new_status}`);
-    res.json({ success: true, order: result.rows[0] });
   } catch (error) {
     console.error('[API] Database error:', error.message);
-    // Fallback to mock data update
-    const order = mockOrders.find(o => o.order_id === parseInt(order_id));
-    if (order) {
-      order.status = new_status;
-      console.log(`[API] Updated mock order ${order_id} status to ${new_status}`);
-      res.json({ success: true, order });
-    } else {
-      res.status(500).json({ error: 'Failed to update order' });
-    }
+    res.status(500).json({ error: 'Failed to update order: ' + error.message });
   }
 });
 
@@ -381,6 +351,12 @@ app.post('/api/orders/update-status', async (req, res) => {
  * Fetches menu items from database
  */
 app.get('/api/menu', async (req, res) => {
+  // Use mock data if database is not connected
+  if (!dbConnected) {
+    console.log('[API] Using mock menu data (database not connected)');
+    return res.json(mockMenu);
+  }
+
   try {
     console.log('[API] Fetching menu from database...');
     
@@ -402,7 +378,7 @@ app.get('/api/menu', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('[API] Database error:', error.message);
-    console.log('[API] Falling back to mock menu data');
+    dbConnected = false;
     res.json(mockMenu);
   }
 });
