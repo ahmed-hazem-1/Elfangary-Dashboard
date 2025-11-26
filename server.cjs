@@ -558,11 +558,11 @@ app.delete('/api/orders/:orderId', async (req, res) => {
       try {
         await client.query('BEGIN');
         
-        // First delete order items
-        await client.query('DELETE FROM order_items WHERE order_id = $1', [orderId]);
+        // First delete order items (convert orderId to integer)
+        await client.query('DELETE FROM order_items WHERE order_id = $1', [parseInt(orderId)]);
         
-        // Then delete the order itself
-        const result = await client.query('DELETE FROM orders WHERE order_id = $1 RETURNING *', [orderId]);
+        // Then delete the order itself (convert orderId to integer)
+        const result = await client.query('DELETE FROM orders WHERE order_id = $1 RETURNING *', [parseInt(orderId)]);
         
         await client.query('COMMIT');
         
