@@ -1,6 +1,11 @@
 
 // Determine API base URL based on environment
-const isDevelopment = import.meta.env.DEV;
+// In production (Netlify), window.location.hostname will NOT be 'localhost'
+// In development, it will be 'localhost'
+const isDevelopment = typeof window !== 'undefined' 
+    ? window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    : import.meta.env.DEV;
+
 const API_BASE_URL = isDevelopment 
     ? 'http://localhost:3001/api'
     : '/api';
