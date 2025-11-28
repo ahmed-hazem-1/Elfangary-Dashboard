@@ -51,6 +51,9 @@ export interface Order {
 
   // Computed/UI specific
   total_amount: number;
+  subtotal?: number; // Amount before discount
+  discount_percentage?: number; // Discount percentage (0-100)
+  discount_amount?: number; // Calculated discount amount
   time_elapsed: string; // Helper for UI display
   is_paid: boolean; // Inferred from status or data
 }

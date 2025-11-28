@@ -16,7 +16,10 @@ const OrderModal: React.FC<OrderModalProps> = ({ order, onClose, onStatusChange 
   
   // Calculate total from items as fallback if order.total_amount is 0
   const calculatedTotal = order.items.reduce((sum, item) => sum + (item.quantity * item.unit_price_at_order), 0);
+  const displaySubtotal = order.subtotal && order.subtotal > 0 ? order.subtotal : calculatedTotal;
   const displayTotal = order.total_amount > 0 ? order.total_amount : calculatedTotal;
+  const hasDiscount = order.discount_percentage && order.discount_percentage > 0;
+  const discountAmount = hasDiscount ? displaySubtotal * (order.discount_percentage! / 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
@@ -96,13 +99,33 @@ const OrderModal: React.FC<OrderModalProps> = ({ order, onClose, onStatusChange 
 
         {/* Footer */}
         <div className="p-6 bg-gray-50 border-t border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-                <span className="text-gray-500 font-medium">Total Amount</span>
-                <div className="text-right">
-                    <span className="text-2xl font-bold text-brand-teal">{displayTotal.toLocaleString()} EGP</span>
-                    {order.total_amount === 0 && calculatedTotal > 0 && (
-                        <p className="text-xs text-yellow-600 mt-1">Calculated from items</p>
-                    )}
+            <div className="space-y-3 mb-6">
+                {/* Subtotal */}
+                <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium">Subtotal</span>
+                    <span className="text-lg font-semibold text-gray-700">{displaySubtotal.toLocaleString()} EGP</span>
+                </div>
+
+                {/* Discount (if any) */}
+                {hasDiscount && (
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-500 font-medium">Discount ({order.discount_percentage}%)</span>
+                        <span className="text-lg font-semibold text-red-600">-{discountAmount.toLocaleString()} EGP</span>
+                    </div>
+                )}
+
+                {/* Divider */}
+                <div className="h-px bg-gray-300 my-2"></div>
+
+                {/* Total */}
+                <div className="flex justify-between items-center">
+                    <span className="text-gray-700 font-bold">Total Amount</span>
+                    <div className="text-right">
+                        <span className="text-2xl font-bold text-brand-teal">{displayTotal.toLocaleString()} EGP</span>
+                        {order.total_amount === 0 && calculatedTotal > 0 && (
+                            <p className="text-xs text-yellow-600 mt-1">Calculated from items</p>
+                        )}
+                    </div>
                 </div>
             </div>
 

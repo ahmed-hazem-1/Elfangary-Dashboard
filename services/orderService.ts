@@ -42,6 +42,7 @@ export const OrderService = {
     address?: string;
     items: Array<{ item_id: string; quantity: number }>;
     notes?: string;
+    discount_percentage?: number;
   }): Promise<{ success: boolean; order_id?: number; error?: string }> => {
     try {
         const response = await fetch(WEBHOOK_CONFIG.CREATE_ORDER_URL, {
@@ -201,10 +202,26 @@ function mapDbOrderToAppOrder(dbOrder: any): Order {
 
     // Calculate total from items if database total is 0 or missing
     let totalAmount = parseFloat(dbOrder.total_amount || 0);
-    if (totalAmount === 0 && items.length > 0) {
-        totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price_at_order), 0);
+    let subtotal = parseFloat(dbOrder.subtotal || 0);
+    const discountPercentage = parseFloat(dbOrder.discount_percentage || 0);
+    
+    // If subtotal is 0 or missing, calculate from items
+    if (subtotal === 0 && items.length > 0) {
+        subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price_at_order), 0);
+    }
+    
+    // If total is 0 or missing, use subtotal or calculate from items
+    if (totalAmount === 0) {
+        if (discountPercentage > 0 && subtotal > 0) {
+            totalAmount = subtotal * (1 - discountPercentage / 100);
+        } else {
+            totalAmount = subtotal;
+        }
         console.log(`[OrderService] Calculated total for order ${dbOrder.order_id}: ${totalAmount} EGP`);
     }
+    
+    // Calculate discount amount
+    const discountAmount = subtotal > 0 ? subtotal - totalAmount : 0;
 
     return {
         order_id: dbOrder.order_id,
@@ -214,6 +231,9 @@ function mapDbOrderToAppOrder(dbOrder: any): Order {
         created_at: createdAt,
         time_elapsed: calculateTimeElapsed(createdAt),
         total_amount: totalAmount,
+        subtotal: subtotal,
+        discount_percentage: discountPercentage,
+        discount_amount: discountAmount,
         is_paid: dbOrder.status !== 'canceled', 
         address: dbOrder.shipping_address || dbOrder.client_address || '',
         

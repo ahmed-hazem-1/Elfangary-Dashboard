@@ -20,6 +20,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
   const [customer_name, setCustomerName] = useState('');
   const [phone_number, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
+  const [discount_percentage, setDiscountPercentage] = useState<number>(0);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [availableItems, setAvailableItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +83,13 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
   };
 
   const calculateTotal = () => {
-    return orderItems.reduce((total, item) => total + (item.item.price * item.quantity), 0);
+    const subtotal = orderItems.reduce((total, item) => total + (item.item.price * item.quantity), 0);
+    const discountAmount = subtotal * (discount_percentage / 100);
+    return {
+      subtotal,
+      discount: discountAmount,
+      total: subtotal - discountAmount
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,6 +107,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
         customer_name: customer_name.trim() || undefined,
         phone_number: phone_number.trim() || undefined,
         address: address.trim() || undefined,
+        discount_percentage: discount_percentage,
         items: orderItems.map(item => ({
           item_id: item.item_id,
           quantity: item.quantity
@@ -113,6 +121,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
         setCustomerName('');
         setPhoneNumber('');
         setAddress('');
+        setDiscountPercentage(0);
         setOrderItems([]);
         onOrderCreated();
         onClose();
@@ -263,10 +272,40 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 p-4 bg-gray-100 rounded-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-700">Total Amount:</span>
-                    <span className="font-bold text-lg sm:text-xl text-gray-900">{calculateTotal().toFixed(2)} EGP</span>
+                <div className="mt-4 p-4 bg-gray-100 rounded-xl space-y-3">
+                  {/* Discount Input */}
+                  <div className="flex items-center justify-between gap-4">
+                    <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Discount:</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={discount_percentage}
+                        onChange={(e) => setDiscountPercentage(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                        className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-teal/20 outline-none text-sm font-medium text-center"
+                      />
+                      <span className="text-sm font-medium text-gray-700">%</span>
+                    </div>
+                  </div>
+
+                  {/* Price Breakdown */}
+                  <div className="space-y-2 pt-2 border-t border-gray-300">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="font-semibold text-gray-700">{calculateTotal().subtotal.toFixed(2)} EGP</span>
+                    </div>
+                    {discount_percentage > 0 && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Discount ({discount_percentage}%):</span>
+                        <span className="font-semibold text-red-600">-{calculateTotal().discount.toFixed(2)} EGP</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+                      <span className="font-bold text-gray-700">Total:</span>
+                      <span className="font-bold text-lg sm:text-xl text-gray-900">{calculateTotal().total.toFixed(2)} EGP</span>
+                    </div>
                   </div>
                 </div>
               </div>
