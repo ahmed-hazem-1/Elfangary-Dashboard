@@ -30,6 +30,9 @@ export const WEBHOOK_CONFIG = {
     ADD_MENU_URL: isDevelopment 
         ? `${API_BASE_URL}/menu/add`
         : `${API_BASE_URL}/menu-add`,
+    DELETE_MENU_URL: isDevelopment 
+        ? `${API_BASE_URL}/menu/delete`
+        : `${API_BASE_URL}/menu-delete`,
     AUTO_REFRESH_INTERVAL_MS: 10000, // 10 seconds
     HEADERS: {
         'Content-Type': 'application/json'

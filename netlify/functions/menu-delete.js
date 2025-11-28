@@ -32,7 +32,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { item_id, name, item_name_ar, description, price, old_price, stock_quantity, image_url } = JSON.parse(body || '{}');
+    const { item_id } = JSON.parse(body || '{}');
 
     if (!item_id) {
       return {
@@ -42,50 +42,26 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
-
-    // Accept both 'name' and 'item_name_ar' for compatibility
-    const itemName = name || item_name_ar;
-    if (itemName !== undefined) {
-      updates.push(`name = $${paramIndex++}`);
-      values.push(itemName);
-    }
-    if (description !== undefined) {
-      updates.push(`description = $${paramIndex++}`);
-      values.push(description);
-    }
-    if (price !== undefined) {
-      updates.push(`price = $${paramIndex++}`);
-      values.push(price);
-    }
-    if (old_price !== undefined) {
-      updates.push(`old_price = $${paramIndex++}`);
-      values.push(old_price);
-    }
-    if (stock_quantity !== undefined) {
-      updates.push(`stock_quantity = $${paramIndex++}`);
-      values.push(stock_quantity);
-    }
-    if (image_url !== undefined) {
-      updates.push(`image_url = $${paramIndex++}`);
-      values.push(image_url);
-    }
-
-    if (updates.length === 0) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'No fields to update' })
-      };
-    }
-
     try {
-      values.push(item_id);
+      // First check if item exists in any orders
+      const orderCheck = await pool.query(
+        'SELECT COUNT(*) as count FROM order_items WHERE item_id = $1',
+        [item_id]
+      );
+
+      if (parseInt(orderCheck.rows[0].count) > 0) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ 
+            error: 'Cannot delete product. It is referenced in existing orders. Consider marking it as unavailable instead.' 
+          })
+        };
+      }
+
       const result = await pool.query(
-        `UPDATE items SET ${updates.join(', ')} WHERE item_id = $${paramIndex} RETURNING *`,
-        values
+        'DELETE FROM items WHERE item_id = $1 RETURNING *',
+        [item_id]
       );
 
       if (result.rows.length === 0) {
@@ -99,14 +75,14 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, item: result.rows[0] })
+        body: JSON.stringify({ success: true, message: 'Product deleted successfully' })
       };
     } catch (error) {
       console.error('Database error:', error.message);
       return {
-        statusCode: 200,
+        statusCode: 500,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true })
+        body: JSON.stringify({ error: 'Failed to delete menu item: ' + error.message })
       };
     }
   } catch (error) {

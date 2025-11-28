@@ -546,6 +546,60 @@ app.post('/api/menu/add', async (req, res) => {
 });
 
 /**
+ * POST /api/menu/delete
+ * Deletes a menu item from database
+ */
+app.post('/api/menu/delete', async (req, res) => {
+  try {
+    const { item_id } = req.body;
+
+    if (!item_id) {
+      return res.status(400).json({ error: 'Missing item_id' });
+    }
+
+    // First check if item exists in any orders
+    const orderCheck = await pool.query(
+      'SELECT COUNT(*) as count FROM order_items WHERE item_id = $1',
+      [item_id]
+    );
+
+    if (parseInt(orderCheck.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete product. It is referenced in existing orders. Consider marking it as unavailable instead.' 
+      });
+    }
+
+    const result = await pool.query(
+      'DELETE FROM items WHERE item_id = $1 RETURNING *',
+      [item_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    console.log(`[API] Deleted menu item ${item_id}`);
+    res.json({ success: true, message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('[API] Database error:', error.message);
+    
+    if (!dbConnected) {
+      // Fallback to mock data
+      const index = mockMenu.findIndex(m => m.item_id === item_id);
+      if (index !== -1) {
+        mockMenu.splice(index, 1);
+        console.log(`[API] Deleted mock menu item ${item_id}`);
+        res.json({ success: true, message: 'Product deleted successfully' });
+      } else {
+        res.status(404).json({ error: 'Menu item not found' });
+      }
+    } else {
+      res.status(500).json({ error: 'Failed to delete menu item: ' + error.message });
+    }
+  }
+});
+
+/**
  * Delete an order by ID
  */
 app.delete('/api/orders/:orderId', async (req, res) => {
@@ -786,5 +840,6 @@ app.listen(PORT, () => {
   console.log(`  GET    /api/menu`);
   console.log(`  POST   /api/menu/toggle`);
   console.log(`  POST   /api/menu/update`);
-  console.log(`  POST   /api/menu/add\n`);
+  console.log(`  POST   /api/menu/add`);
+  console.log(`  POST   /api/menu/delete\n`);
 });

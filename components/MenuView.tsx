@@ -89,13 +89,55 @@ const MenuView: React.FC = () => {
         });
 
         if (res.ok) {
-            setItems(prev => prev.map(item => 
-                item.item_id === editingItem.item_id ? editingItem : item
-            ));
-            setEditingItem(null);
+            const result = await res.json();
+            if (result.success) {
+                // Update local state with saved data
+                setItems(prev => prev.map(item => 
+                    item.item_id === editingItem.item_id ? editingItem : item
+                ));
+                setEditingItem(null);
+                // Refresh from server to ensure sync
+                await fetchMenu();
+            } else {
+                alert("Failed to save changes: " + (result.error || 'Unknown error'));
+            }
+        } else {
+            alert("Failed to save changes: Server error");
         }
     } catch (e) {
-        alert("Failed to save changes");
+        console.error(e);
+        alert("Failed to save changes: " + (e instanceof Error ? e.message : 'Unknown error'));
+    }
+  };
+
+  const handleDeleteItem = async (itemId: number | string) => {
+    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+        const res = await fetch(WEBHOOK_CONFIG.DELETE_MENU_URL, {
+            method: 'POST',
+            headers: WEBHOOK_CONFIG.HEADERS,
+            body: JSON.stringify({ item_id: itemId })
+        });
+
+        if (res.ok) {
+            const result = await res.json();
+            if (result.success) {
+                // Remove from local state
+                setItems(prev => prev.filter(item => item.item_id !== itemId));
+                setEditingItem(null);
+            } else {
+                alert("Failed to delete product: " + (result.error || 'Unknown error'));
+            }
+        } else {
+            const error = await res.json().catch(() => ({ error: 'Server error' }));
+            alert("Failed to delete product: " + (error.error || 'Server error'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Failed to delete product: " + (e instanceof Error ? e.message : 'Unknown error'));
     }
   };
 
@@ -240,18 +282,27 @@ const MenuView: React.FC = () => {
                         />
                     </div>
                     
-                    <div className="pt-4 flex gap-3">
-                        <button type="button" onClick={() => setEditingItem(null)} className="flex-1 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors">
-                            Cancel
-                        </button>
+                    <div className="pt-4 space-y-3">
+                        <div className="flex gap-3">
+                            <button type="button" onClick={() => setEditingItem(null)} className="flex-1 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors">
+                                Cancel
+                            </button>
+                            <button 
+                                type="submit" 
+                                className="flex-1 py-3 rounded-xl font-semibold text-white shadow-lg transition-colors flex items-center justify-center gap-2"
+                                style={{ backgroundColor: '#D97706', boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3), 0 4px 6px -4px rgba(217, 119, 6, 0.3)' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#B45309')}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#D97706')}
+                            >
+                                <Save size={18} strokeWidth={2} /> Save Changes
+                            </button>
+                        </div>
                         <button 
-                            type="submit" 
-                            className="flex-1 py-3 rounded-xl font-semibold text-white shadow-lg transition-colors flex items-center justify-center gap-2"
-                            style={{ backgroundColor: '#D97706', boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3), 0 4px 6px -4px rgba(217, 119, 6, 0.3)' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#B45309')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#D97706')}
+                            type="button"
+                            onClick={() => handleDeleteItem(editingItem.item_id)}
+                            className="w-full py-3 rounded-xl font-semibold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30 transition-colors flex items-center justify-center gap-2"
                         >
-                            <Save size={18} strokeWidth={2} /> Save Changes
+                            <X size={18} strokeWidth={2} /> Delete Product
                         </button>
                     </div>
                 </form>
