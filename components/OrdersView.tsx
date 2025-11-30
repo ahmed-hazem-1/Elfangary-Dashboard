@@ -6,7 +6,8 @@ import { WEBHOOK_CONFIG } from '../services/config';
 import StatsBar from './StatsBar';
 import OrderModal from './OrderModal';
 import OrderSection from './OrderSection';
-import { Search, Bell, RefreshCw, Loader2, Zap, History, CheckCircle2, XCircle, Bike, ChefHat, Clock } from 'lucide-react';
+import { Search, Bell, RefreshCw, Loader2, Zap, History, CheckCircle2, XCircle, Bike, ChefHat, Clock, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -80,6 +81,65 @@ const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
     }
   };
 
+  const exportToExcel = () => {
+    // Filter orders with valid customer names and phone numbers
+    const customersWithInfo = orders
+      .filter(order => {
+        const hasName = order.customer?.full_name && 
+                       order.customer.full_name.trim() !== '' && 
+                       order.customer.full_name !== 'Unknown Customer' &&
+                       order.customer.full_name !== 'Walk-in Customer';
+        const hasPhone = order.customer?.phone_number && 
+                        order.customer.phone_number.trim() !== '';
+        return hasName && hasPhone;
+      })
+      .map(order => ({
+        'الاسم': order.customer?.full_name || '',
+        'رقم الهاتف': order.customer?.phone_number || '',
+        'العنوان': order.shipping_address || '',
+        'المصدر': order.customer?.source || '',
+        'عدد الطلبات': orders.filter(o => o.customer?.phone_number === order.customer?.phone_number).length
+      }));
+
+    // Remove duplicates based on phone number
+    const uniqueCustomers = customersWithInfo.reduce((acc, current) => {
+      const exists = acc.find(item => item['رقم الهاتف'] === current['رقم الهاتف']);
+      if (!exists) {
+        acc.push(current);
+      }
+      return acc;
+    }, [] as typeof customersWithInfo);
+
+    if (uniqueCustomers.length === 0) {
+      alert('لا يوجد عملاء بأسماء وأرقام هواتف مسجلة');
+      return;
+    }
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(uniqueCustomers);
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 25 }, // الاسم
+      { wch: 15 }, // رقم الهاتف
+      { wch: 30 }, // العنوان
+      { wch: 15 }, // المصدر
+      { wch: 12 }  // عدد الطلبات
+    ];
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'العملاء');
+
+    // Generate file name with current date
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const fileName = `customers_${dateStr}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, fileName);
+  };
+
   const filteredOrders = orders.filter(o => {
     const customerName = o.customer?.full_name || 'Unknown Customer';
     const orderId = o.order_id?.toString() || '';
@@ -131,6 +191,15 @@ const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
                 <div className="text-xs text-gray-400 hidden xl:block">
                     Updated: {lastUpdate.toLocaleTimeString()}
                 </div>
+
+                <button 
+                  onClick={exportToExcel}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all font-medium"
+                  title="Export customers to Excel"
+                >
+                  <FileSpreadsheet size={18} />
+                  <span className="hidden sm:inline">Export Excel</span>
+                </button>
 
                 <button 
                   onClick={() => fetchData()} 
