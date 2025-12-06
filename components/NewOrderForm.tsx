@@ -21,6 +21,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
   const [phone_number, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
   const [discount_percentage, setDiscountPercentage] = useState<number>(0);
+  const [isTestOrder, setIsTestOrder] = useState(false);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [availableItems, setAvailableItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +109,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
         phone_number: phone_number.trim() || undefined,
         address: address.trim() || undefined,
         discount_percentage: discount_percentage,
+        is_test_order: isTestOrder,
         items: orderItems.map(item => ({
           item_id: item.item_id,
           quantity: item.quantity
@@ -122,6 +124,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
         setPhoneNumber('');
         setAddress('');
         setDiscountPercentage(0);
+        setIsTestOrder(false);
         setOrderItems([]);
         onOrderCreated();
         onClose();
@@ -288,6 +291,20 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
                       />
                       <span className="text-sm font-medium text-gray-700">%</span>
                     </div>
+                  </div>
+
+                  {/* Test Order Checkbox */}
+                  <div className="flex items-center justify-between gap-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isTestOrder}
+                        onChange={(e) => setIsTestOrder(e.target.checked)}
+                        className="w-4 h-4 text-yellow-600 bg-white border-gray-300 rounded focus:ring-yellow-500 focus:ring-2 cursor-pointer"
+                      />
+                      <span>Test Order</span>
+                    </label>
+                    <span className="text-xs text-gray-500 italic">Not counted in revenue</span>
                   </div>
 
                   {/* Price Breakdown */}

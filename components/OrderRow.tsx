@@ -85,7 +85,12 @@ const OrderRow: React.FC<OrderRowProps> = ({ order, onStatusChange, onViewDetail
               {SourceIcon ? <SourceIcon size={20} strokeWidth={2.5} /> : <Eye size={20} strokeWidth={2.5} />}
           </div>
           <div>
-            <p className="font-bold text-gray-800">#{order.order_id}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-gray-800">#{order.order_id}</p>
+              {order.is_test_order && (
+                <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-yellow-300">TEST</span>
+              )}
+            </div>
             <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded">
                 {order.customer.source}
             </span>
@@ -136,7 +141,12 @@ const OrderRow: React.FC<OrderRowProps> = ({ order, onStatusChange, onViewDetail
       <div className="hidden sm:flex items-center gap-6 w-1/4">
         <div>
             <p className="text-gray-400 text-xs font-medium mb-1">Order ID</p>
-            <p className="font-bold text-gray-800">#{order.order_id}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-gray-800">#{order.order_id}</p>
+              {order.is_test_order && (
+                <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-yellow-300">TEST</span>
+              )}
+            </div>
         </div>
         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${SOURCE_COLORS[order.customer.source] || 'bg-gray-100'}`}>
             {SourceIcon ? <SourceIcon size={20} strokeWidth={2.5} /> : <Eye size={20} strokeWidth={2.5} />}

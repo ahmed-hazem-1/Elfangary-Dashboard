@@ -43,6 +43,7 @@ export const OrderService = {
     items: Array<{ item_id: string; quantity: number }>;
     notes?: string;
     discount_percentage?: number;
+    is_test_order?: boolean;
   }): Promise<{ success: boolean; order_id?: number; error?: string }> => {
     try {
         const response = await fetch(WEBHOOK_CONFIG.CREATE_ORDER_URL, {
@@ -235,6 +236,7 @@ function mapDbOrderToAppOrder(dbOrder: any): Order {
         discount_percentage: discountPercentage,
         discount_amount: discountAmount,
         is_paid: dbOrder.status !== 'canceled', 
+        is_test_order: dbOrder.is_test_order === true || dbOrder.is_test_order === 'true',
         address: dbOrder.shipping_address || dbOrder.client_address || '',
         
         customer: {

@@ -31,6 +31,9 @@ const OrderModal: React.FC<OrderModalProps> = ({ order, onClose, onStatusChange 
                 <span className="bg-brand-teal text-white text-xs font-bold px-2 py-1 rounded">
                   {order.customer.source}
                 </span>
+                {order.is_test_order && (
+                  <span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded border border-yellow-300">TEST ORDER</span>
+                )}
                 <h2 className="text-xl font-bold text-gray-800">Order Details</h2>
             </div>
             <p className="text-sm text-gray-600 font-mono">ID: {order.order_id}</p>

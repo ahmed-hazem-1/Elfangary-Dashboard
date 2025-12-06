@@ -126,11 +126,13 @@ const DashboardView: React.FC = () => {
             : (orderDate >= periodStartDate);
           
           if (isInRange) {
-            // Count all orders in period
-            totalOrders++;
+            // Count all orders in period (excluding test orders)
+            if (!order.is_test_order) {
+              totalOrders++;
+            }
             
-            // Only count delivered orders in sales
-            if (order.status === OrderStatus.DELIVERED) {
+            // Only count delivered orders in sales (excluding test orders)
+            if (order.status === OrderStatus.DELIVERED && !order.is_test_order) {
               totalSales += order.total_amount;
               
               // Track product sales
@@ -208,9 +210,13 @@ const DashboardView: React.FC = () => {
             : (orderDate >= periodStartDate);
           
           if (isInRange) {
-            totalOrders++;
+            // Exclude test orders from count
+            if (!order.is_test_order) {
+              totalOrders++;
+            }
             
-            if (order.status === OrderStatus.DELIVERED) {
+            // Only count delivered orders in sales (excluding test orders)
+            if (order.status === OrderStatus.DELIVERED && !order.is_test_order) {
               totalSales += order.total_amount;
             }
           }

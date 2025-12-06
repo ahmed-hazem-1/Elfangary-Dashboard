@@ -25,7 +25,8 @@ CREATE TABLE orders (
     status VARCHAR(50) DEFAULT 'pending',
     total_amount DECIMAL(10, 2),
     shipping_address TEXT,
-    payment_type VARCHAR(50)
+    payment_type VARCHAR(50),
+    is_test_order BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE order_items (

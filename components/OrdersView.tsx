@@ -6,7 +6,7 @@ import { WEBHOOK_CONFIG } from '../services/config';
 import StatsBar from './StatsBar';
 import OrderModal from './OrderModal';
 import OrderSection from './OrderSection';
-import { Search, Bell, RefreshCw, Loader2, Zap, History, CheckCircle2, XCircle, Bike, ChefHat, Clock, FileSpreadsheet } from 'lucide-react';
+import { Search, Bell, RefreshCw, Loader2, Zap, History, CheckCircle2, XCircle, Bike, ChefHat, Clock, FileSpreadsheet, TestTube } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
@@ -148,11 +148,16 @@ const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
     return matchesSearch;
   });
 
-  const newOrders = filteredOrders.filter(o => o.status === OrderStatus.PENDING_CONFIRMATION);
-  const preparingOrders = filteredOrders.filter(o => o.status === OrderStatus.CONFIRMED || o.status === OrderStatus.PREPARING);
-  const deliveryOrders = filteredOrders.filter(o => o.status === OrderStatus.OUT_FOR_DELIVERY);
-  const completedOrders = filteredOrders.filter(o => o.status === OrderStatus.DELIVERED);
-  const canceledOrders = filteredOrders.filter(o => o.status === OrderStatus.CANCELED);
+  // Separate test orders by flag
+  const testOrders = filteredOrders.filter(o => o.is_test_order === true);
+  const realOrders = filteredOrders.filter(o => !o.is_test_order);
+
+  // Real order sections
+  const newOrders = realOrders.filter(o => o.status === OrderStatus.PENDING_CONFIRMATION);
+  const preparingOrders = realOrders.filter(o => o.status === OrderStatus.CONFIRMED || o.status === OrderStatus.PREPARING);
+  const deliveryOrders = realOrders.filter(o => o.status === OrderStatus.OUT_FOR_DELIVERY);
+  const completedOrders = realOrders.filter(o => o.status === OrderStatus.DELIVERED);
+  const canceledOrders = realOrders.filter(o => o.status === OrderStatus.CANCELED);
 
   if (isLoading) {
     return (
@@ -212,7 +217,7 @@ const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar pr-2">
-        <StatsBar orders={orders} />
+        <StatsBar orders={realOrders} />
 
         <OrderSection 
             title="Pending Confirmation" 
@@ -279,6 +284,38 @@ const OrdersView = forwardRef<{ refreshData: () => void }>((props, ref) => {
                 onViewDetails={setSelectedOrder}
                 onDelete={handleDeleteOrder}
                 emptyMessage="No canceled orders"
+                defaultOpen={false}
+            />
+        </div>
+
+        {/* Test Orders Section - Always visible */}
+        <div className="mt-10 border-t-2 border-yellow-300 pt-6">
+            <div className="flex items-center justify-between mb-4 px-2">
+                <div className="flex items-center gap-2 text-yellow-700">
+                    <TestTube size={20} />
+                    <h2 className="font-bold text-sm uppercase tracking-wide">Test Orders</h2>
+                    <span className="text-xs bg-yellow-100 px-2 py-1 rounded-full border border-yellow-300">Not counted in revenue</span>
+                </div>
+                {testOrders.length > 0 && (
+                    <div className="flex items-center gap-3 px-2 text-yellow-700">
+                        <span className="text-xs font-semibold uppercase tracking-wide">Total Cost:</span>
+                        <span className="text-lg font-bold text-yellow-600">
+                            {testOrders.reduce((sum, order) => sum + order.total_amount, 0).toLocaleString()} EGP
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            <OrderSection 
+                title="All Test Orders" 
+                colorClass="bg-yellow-500"
+                countColorClass="bg-yellow-500 text-white"
+                icon={<TestTube size={18} />}
+                orders={testOrders}
+                onStatusChange={handleStatusChange}
+                onViewDetails={setSelectedOrder}
+                onDelete={handleDeleteOrder}
+                emptyMessage="No test orders"
                 defaultOpen={false}
             />
         </div>

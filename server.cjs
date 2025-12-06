@@ -162,6 +162,7 @@ app.get('/api/orders', async (req, res) => {
         o.total_amount,
         o.subtotal,
         o.discount_percentage,
+        COALESCE(o.is_test_order, false) as is_test_order,
         COALESCE(o.shipping_address, c.shipping_address, '') as shipping_address,
         json_agg(
           json_build_object(
@@ -175,7 +176,7 @@ app.get('/api/orders', async (req, res) => {
       LEFT JOIN clients c ON o.client_id = c.client_id
       LEFT JOIN order_items oi ON o.order_id = oi.order_id
       LEFT JOIN items i ON oi.item_id = i.item_id
-      GROUP BY o.order_id, o.client_id, c.full_name, c.phone_number, c.source, o.order_date, o.status, o.payment_type, o.total_amount, o.subtotal, o.discount_percentage, o.shipping_address, c.shipping_address
+      GROUP BY o.order_id, o.client_id, c.full_name, c.phone_number, c.source, o.order_date, o.status, o.payment_type, o.total_amount, o.subtotal, o.discount_percentage, o.is_test_order, o.shipping_address, c.shipping_address
       ORDER BY o.order_date DESC
     `);
     
@@ -194,7 +195,7 @@ app.get('/api/orders', async (req, res) => {
  */
 app.post('/api/orders', async (req, res) => {
   try {
-    const { customer_name, phone_number, address, items, notes, discount_percentage } = req.body;
+    const { customer_name, phone_number, address, items, notes, discount_percentage, is_test_order } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Items are required for order creation' });
@@ -203,6 +204,7 @@ app.post('/api/orders', async (req, res) => {
     let clientId = null;
     let subtotal = 0;
     const discountPercent = parseFloat(discount_percentage) || 0;
+    const isTestOrder = is_test_order === true;
 
     // If customer information is provided, create/find the client
     if (customer_name || phone_number) {
@@ -251,12 +253,12 @@ app.post('/api/orders', async (req, res) => {
     // Calculate total after discount
     const totalAmount = subtotal * (1 - discountPercent / 100);
 
-    // Create the order
+    // Create the order with is_test_order field
     const orderResult = await pool.query(
-      `INSERT INTO orders (client_id, status, total_amount, subtotal, discount_percentage, shipping_address, payment_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO orders (client_id, status, total_amount, subtotal, discount_percentage, shipping_address, payment_type, is_test_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING order_id`,
-      [clientId, 'pending_confirmation', totalAmount, subtotal, discountPercent, address || '', 'cash']
+      [clientId, 'pending_confirmation', totalAmount, subtotal, discountPercent, address || '', 'cash', isTestOrder]
     );
 
     const orderId = orderResult.rows[0].order_id;
@@ -281,7 +283,7 @@ app.post('/api/orders', async (req, res) => {
       );
     }
 
-    console.log(`[API] Created new order ${orderId} with subtotal ${subtotal}, discount ${discountPercent}%, total ${totalAmount}`);
+    console.log(`[API] Created new order ${orderId}${isTestOrder ? ' (TEST)' : ''} with subtotal ${subtotal}, discount ${discountPercent}%, total ${totalAmount}`);
     res.json({ success: true, order_id: orderId, total_amount: totalAmount });
   } catch (error) {
     console.error('[API] Database error:', error.message);

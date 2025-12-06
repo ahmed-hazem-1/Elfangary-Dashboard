@@ -56,6 +56,7 @@ export interface Order {
   discount_amount?: number; // Calculated discount amount
   time_elapsed: string; // Helper for UI display
   is_paid: boolean; // Inferred from status or data
+  is_test_order?: boolean; // Test order flag - excluded from revenue/profit calculations
 }
 
 // Webhook Response Types
