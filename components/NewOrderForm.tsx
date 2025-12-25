@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MenuItem } from '../types';
 import { OrderService } from '../services/orderService';
 import { WEBHOOK_CONFIG } from '../services/config';
-import { Plus, Minus, X, ShoppingCart, User, Phone, MapPin } from 'lucide-react';
+import { Plus, Minus, X, ShoppingCart, User, Phone, MapPin, Search } from 'lucide-react';
 
 interface NewOrderFormProps {
   isOpen: boolean;
@@ -26,12 +26,28 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
   const [availableItems, setAvailableItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   useEffect(() => {
     if (isOpen) {
+      setProductSearch('');
       fetchMenuItems();
     }
   }, [isOpen]);
+
+  const filteredItems = useMemo(() => {
+    const query = productSearch.trim().toLowerCase();
+
+    if (!query) return availableItems;
+
+    return availableItems.filter((item) => {
+      const nameMatch = item.item_name_ar?.toLowerCase().includes(query);
+      const categoryMatch = item.category_ar?.toLowerCase().includes(query);
+      const descriptionMatch = item.description_ar?.toLowerCase().includes(query);
+
+      return nameMatch || categoryMatch || descriptionMatch;
+    });
+  }, [availableItems, productSearch]);
 
   const fetchMenuItems = async () => {
     setIsLoading(true);
@@ -126,6 +142,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
         setDiscountPercentage(0);
         setIsTestOrder(false);
         setOrderItems([]);
+        setProductSearch('');
         onOrderCreated();
         onClose();
         alert('Order created successfully!');
@@ -217,28 +234,45 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onOrderCre
             {/* Available Items */}
             <div>
               <h4 className="font-semibold text-gray-700 mb-3 text-sm">Available Products</h4>
-              {isLoading ? (
-                <div className="text-center py-4 text-sm">Loading products...</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-52 overflow-y-auto">
-                  {availableItems.map(item => (
-                    <div key={item.item_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:border-brand-teal/30 transition-colors gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-medium text-gray-800 text-sm truncate" dir="rtl">{item.item_name_ar}</h5>
-                        <p className="text-xs text-gray-500">{item.price} EGP</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => addItemToOrder(item)}
-                        className="px-2 py-1 sm:px-3 sm:py-1 bg-brand-teal text-green-600 rounded-lg text-xs sm:text-sm font-medium hover:bg-brand-tealDark transition-colors flex items-center gap-1 whitespace-nowrap"
-                      >
-                        <Plus size={16} strokeWidth={2} />
-                        <span className="hidden sm:inline">Add</span>
-                      </button>
-                    </div>
-                  ))}
+              <div className="space-y-3">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full pl-10 pr-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-teal/20 outline-none text-sm"
+                    placeholder="Search products by name or category"
+                  />
+                  <Search size={16} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 </div>
-              )}
+
+                {isLoading ? (
+                  <div className="text-center py-4 text-sm">Loading products...</div>
+                ) : filteredItems.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl">
+                    No products match your search.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-52 overflow-y-auto">
+                    {filteredItems.map(item => (
+                      <div key={item.item_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:border-brand-teal/30 transition-colors gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-medium text-gray-800 text-sm truncate" dir="rtl">{item.item_name_ar}</h5>
+                          <p className="text-xs text-gray-500">{item.price} EGP</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => addItemToOrder(item)}
+                          className="px-2 py-1 sm:px-3 sm:py-1 bg-brand-teal text-green-600 rounded-lg text-xs sm:text-sm font-medium hover:bg-brand-tealDark transition-colors flex items-center gap-1 whitespace-nowrap"
+                        >
+                          <Plus size={16} strokeWidth={2} />
+                          <span className="hidden sm:inline">Add</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Order Items */}
